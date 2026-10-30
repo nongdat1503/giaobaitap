@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Bài Tập - Giáo Viên</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: #f0f2f5; color: #333; padding: 20px; }
+        .container { max-width: 850px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 25px; color: #1a73e8; }
+        h2 { margin-bottom: 15px; color: #202124; font-size: 1.25rem; border-bottom: 2px solid #e8eaed; padding-bottom: 8px; }
+        .panel { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); margin-bottom: 25px; }
+        .form-row { display: flex; gap: 15px; }
+        .form-row .form-group { flex: 1; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 14px; color: #5f6368; }
+        input[type="text"], input[type="datetime-local"], textarea { width: 100%; padding: 10px; border: 1px solid #dadce0; border-radius: 6px; font-size: 15px; outline: none; }
+        .btn-submit { background-color: #1a73e8; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 15px; width: 100%; margin-top: 5px; }
+        .btn-submit:hover { background-color: #1557b0; }
+        .card { background: #fff; border: 1px solid #e0e0e0; border-left: 6px solid #1a73e8; padding: 18px; margin-bottom: 20px; border-radius: 6px; position: relative; }
+        .card h3 { color: #1967d2; margin-bottom: 5px; padding-right: 70px; }
+        .meta { font-size: 13px; color: #70757a; margin-bottom: 10px; }
+        .desc { font-size: 15px; margin-bottom: 15px; line-height: 1.5; background: #f8f9fa; padding: 10px; border-radius: 4px; }
+        .btn-delete { position: absolute; top: 15px; right: 15px; background: #d93025; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 13px; }
+        .submitted-list { background: #f1f8e9; padding: 10px; border-radius: 6px; font-size: 13px; }
+        .submitted-item { padding: 5px 0; border-bottom: 1px solid #e8eaed; color: #2e7d32; }
+        .submitted-item a { color: #1a73e8; font-weight: 600; text-decoration: none; }
+        .submitted-item a:hover { text-decoration: underline; }
+        .no-task { text-align: center; color: #70757a; font-style: italic; padding: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👨‍🏫 Bảng Quản Lý Bài Tập (Giáo Viên)</h1>
+        
+        <div class="panel">
+            <h2>➕ Giao Bài Tập Mới</h2>
+            <form id="homeworkForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="subject">Môn học:</label>
+                        <input type="text" id="subject" placeholder="Toán, Văn, Anh..." required>
+                    </div>
+                    <div class="form-group">
+                        <label for="deadline">Hạn chót nộp:</label>
+                        <input type="datetime-local" id="deadline" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="title">Tiêu đề bài tập:</label>
+                    <input type="text" id="title" placeholder="Ví dụ: Bài tập về nhà tiết 5..." required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="description">Yêu cầu / Đề bài chi tiết:</label>
+                    <textarea id="description" rows="4" placeholder="Nhập nội dung đề bài hoặc dán link tài liệu/đề thi ở đây..." required></textarea>
+                </div>
+                
+                <button type="submit" class="btn-submit">Phát Hành Bài Tập</button>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h2>📝 Bài Tập Đã Đăng & Danh Sách Học Sinh Nộp Bài</h2>
+            <div id="homeworkList">
+                <p class="no-task">Đang nạp dữ liệu...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // THAY LINK GOOGLE APPS SCRIPT CỦA BẠN VÀO ĐÂY
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwATxwWnNUEj6o-KnkH-FfYRq0A2F1nPQBIEzevCOKMqDkb7lHUi1ZFmWNjbFhWZT4k/exec";
+
+        let homeworkData = [];
+
+        async function fetchHomework() {
+            try {
+                const res = await fetch(SCRIPT_URL);
+                homeworkData = await res.json();
+                renderHomework();
+            } catch (err) {
+                console.error("Lỗi:", err);
+            }
+        }
+
+        document.getElementById('homeworkForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.innerText = "Đang phát hành...";
+            btn.disabled = true;
+
+            const subject = document.getElementById('subject').value;
+            const title = document.getElementById('title').value;
+            const deadlineInput = document.getElementById('deadline').value;
+            const description = document.getElementById('description').value;
+
+            const deadline = new Date(deadlineInput).toLocaleString('vi-VN');
+
+            const payload = {
+                action: "createTask",
+                id: Date.now(),
+                subject,
+                title,
+                deadline,
+                description
+            };
+
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                document.getElementById('homeworkForm').reset();
+                alert('Phát hành bài tập thành công!');
+                fetchHomework();
+            } catch (err) {
+                alert('Lỗi khi đăng bài! Hãy kiểm tra lại link SCRIPT_URL.');
+            } finally {
+                btn.innerText = "Phát Hành Bài Tập";
+                btn.disabled = false;
+            }
+        });
+
+        function renderHomework() {
+            const homeworkList = document.getElementById('homeworkList');
+            homeworkList.innerHTML = '';
+
+            if (!homeworkData || homeworkData.length === 0) {
+                homeworkList.innerHTML = '<p class="no-task">Chưa có bài tập nào được giao.</p>';
+                return;
+            }
+
+            homeworkData.forEach(task => {
+                let submissionHTML = '<p style="color:#70757a; font-size:13px;">Chưa có học sinh nào nộp bài.</p>';
+                if (task.submissions && task.submissions.length > 0) {
+                    submissionHTML = `
+                        <div class="submitted-list">
+                            <strong>📋 Danh sách bài làm đã nộp (${task.submissions.length}):</strong>
+                            ${task.submissions.map(sub => `
+                                <div class="submitted-item">
+                                    🙋‍♂️ <b>${sub.studentName}</b> - 🔗 Link bài: <a href="${sub.homeworkLink}" target="_blank">Xem bài làm</a> <small style="color: #70757a">(${sub.time})</small>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <h3>[${task.subject}] ${task.title}</h3>
+                    <p class="meta">⏳ <b>Hạn chót:</b> ${task.deadline}</p>
+                    <p class="desc">${task.description.replace(/\n/g, '<br>')}</p>
+                    <button class="btn-delete" onclick="deleteTask(${task.id})">Xóa bài</button>
+                    ${submissionHTML}
+                `;
+                homeworkList.appendChild(card);
+            });
+        }
+
+        async function deleteTask(taskId) {
+            if (confirm('Bạn chắc chắn muốn xóa bài tập này?')) {
+                try {
+                    await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: "deleteTask", taskId: taskId })
+                    });
+                    fetchHomework();
+                } catch (err) {
+                    alert('Không thể xóa bài tập lúc này.');
+                }
+            }
+        }
+
+        fetchHomework();
+    </script>
+</body>
+</html>
